@@ -3,7 +3,8 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from app.chats.models import ChatMessage, ChatMessageContent, ChatSession, ChatSummary
+from app.chat.models import ChatMessage, ChatSession, ChatSummary
+from app.auth.models import AuthUser, AuthVerifyCode
 from app.config.main import settings
 from app.database import Base
 
