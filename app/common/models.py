@@ -1,7 +1,7 @@
 import datetime
 import uuid
 
-from sqlalchemy import UUID, TIMESTAMP, func
+from sqlalchemy import TIMESTAMP, UUID, func
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column
 
 
@@ -17,6 +17,7 @@ class CreatedAtMixin:
         server_default=func.now(),
         nullable=False,
     )
+
 
 class UpdatedAtMixin:
     updated_at: Mapped[datetime.datetime] = mapped_column(

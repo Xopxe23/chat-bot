@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +15,7 @@ class AuthUserRepository(BaseRepository[AuthUser, AuthUserSchema]):
 
 
 async def get_user_repository(
-        session: AsyncSession = Depends(get_db),
+        session: Annotated[AsyncSession, Depends(get_db)],
 ) -> AuthUserRepository:
     return AuthUserRepository(session)
 
@@ -24,6 +26,6 @@ class AuthVerifyCodeRepository(BaseRepository[AuthVerifyCode, AuthVerifyCodeSche
 
 
 async def get_verify_code_repository(
-        session: AsyncSession = Depends(get_db),
+        session: Annotated[AsyncSession, Depends(get_db)],
 ) -> AuthVerifyCodeRepository:
     return AuthVerifyCodeRepository(session)

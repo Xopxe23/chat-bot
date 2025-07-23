@@ -1,8 +1,8 @@
 import uvicorn
 from fastapi import FastAPI
 
-from app.chat.routers import router as chats_router
 from app.auth.routers import router as auth_router
+from app.chat.routers import router as chats_router
 
 app = FastAPI()
 

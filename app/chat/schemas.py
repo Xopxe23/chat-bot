@@ -1,8 +1,8 @@
 import datetime
 import uuid
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
-from pydantic import Field, BaseModel
+from pydantic import BaseModel, Field
 
 from app.chat.models import ContentTypeEnum, RoleEnum
 from app.common.schemas import OrmModel

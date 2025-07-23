@@ -1,5 +1,8 @@
+from typing import Annotated
+
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.chat.models import ChatMessage, ChatSession
 from app.chat.schemas import ChatMessageSchema, ChatSessionSchema
 from app.common.repositories import BaseRepository
@@ -12,7 +15,7 @@ class ChatSessionRepository(BaseRepository[ChatSession, ChatSessionSchema]):
 
 
 async def get_chat_repository(
-    session: AsyncSession = Depends(get_db)
+        session: Annotated[AsyncSession, Depends(get_db)],
 ) -> ChatSessionRepository:
     return ChatSessionRepository(session)
 
@@ -22,8 +25,7 @@ class ChatMessageRepository(BaseRepository[ChatMessage, ChatMessageSchema]):
     schema = ChatMessageSchema
 
 
-
 async def get_message_repository(
-    session: AsyncSession = Depends(get_db)
+        session: Annotated[AsyncSession, Depends(get_db)],
 ) -> ChatMessageRepository:
     return ChatMessageRepository(session)

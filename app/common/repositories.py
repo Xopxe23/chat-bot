@@ -1,8 +1,8 @@
-from typing import Generic, List, Optional, TypeVar, Any, Union, Type
+from typing import Any, Generic, List, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel
+from sqlalchemy import asc, desc, func, select
 from sqlalchemy.dialects import postgresql
-from sqlalchemy import select, desc, asc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeMeta, selectinload
 from sqlalchemy.sql import operators

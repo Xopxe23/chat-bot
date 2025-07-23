@@ -1,7 +1,7 @@
 import datetime
 import uuid
 
-from pydantic import EmailStr, BaseModel
+from pydantic import BaseModel, EmailStr
 
 from app.common.schemas import OrmModel
 
