@@ -1,5 +1,6 @@
 from typing import Any, Generic, List, Optional, Type, TypeVar, Union
 
+from fastapi.openapi.models import Schema
 from pydantic import BaseModel
 from sqlalchemy import asc, desc, func, select
 from sqlalchemy.dialects import postgresql
@@ -36,7 +37,7 @@ class BaseRepository(Generic[T, S]):
         joined: Optional[list[str]] = None,
         schema_cls: Optional[Type[BaseModel]] = None,
         **filter_by: Any,
-    ) -> Any:
+    ) -> S:
         query = select(self.model)
         query = self._apply_joins(query, joined)
         filters = self._build_filters(filter_by)
@@ -55,7 +56,7 @@ class BaseRepository(Generic[T, S]):
         joined: Optional[list[str]] = None,
         schema_cls: Optional[Type[BaseModel]] = None,
         **filter_by: Any,
-    ) -> List[Any]:
+    ) -> List[S]:
         query = select(self.model)
         query = self._apply_joins(query, joined)
         filters = self._build_filters(filter_by)

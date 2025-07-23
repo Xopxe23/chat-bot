@@ -1,18 +1,17 @@
+import json
 import uuid
 from typing import Annotated, List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, status
+from fastapi.websockets import WebSocket, WebSocketDisconnect
 from fastapi_pagination import Page, Params
 
 from app.auth.schemas import AuthUserSchema
-from app.auth.utils import get_current_user
-from app.chat.repositories import (
-    ChatMessageRepository,
-    ChatSessionRepository,
-    get_chat_repository,
-    get_message_repository,
-)
-from app.chat.schemas import ChatMessageSchema, ChatSessionSchema, ChatSessionSchemaWithMessages
+from app.auth.utils import get_current_user, parse_token
+from app.chat.models import ContentTypeEnum, RoleEnum
+from app.chat.schemas import ChatMessageSchema, ChatSessionSchema, ChatSessionSchemaWithMessages, ContentItem
+from app.chat.services import ChatService, get_chat_service
+from app.managers.connections import ConnectionManager, get_ws_manager
 
 router = APIRouter(prefix="/chat", tags=["Chats"])
 
@@ -20,9 +19,9 @@ router = APIRouter(prefix="/chat", tags=["Chats"])
 @router.get("/", response_model=List[ChatSessionSchemaWithMessages])
 async def get_user_chats(
         user: Annotated[AuthUserSchema, Depends(get_current_user)],
-        chat_repo: Annotated[ChatSessionRepository, Depends(get_chat_repository)],
+        chat_serv: Annotated[ChatService, Depends(get_chat_service)],
 ):
-    chats = await chat_repo.get_list(
+    chats = await chat_serv.chat_repo.get_list(
         user_id=user.id,
         joined=["messages"],
         schema_cls=ChatSessionSchemaWithMessages,
@@ -33,9 +32,9 @@ async def get_user_chats(
 @router.post("/", response_model=ChatSessionSchema)
 async def create_user_chat(
         user: Annotated[AuthUserSchema, Depends(get_current_user)],
-        chat_repo: Annotated[ChatSessionRepository, Depends(get_chat_repository)],
+        chat_serv: Annotated[ChatService, Depends(get_chat_service)],
 ):
-    chat = await chat_repo.add(user_id=user.id)
+    chat = await chat_serv.chat_repo.add(user_id=user.id)
     return chat
 
 
@@ -43,18 +42,18 @@ async def create_user_chat(
 async def get_chat_messages(
         chat_id: uuid.UUID,
         params: Annotated[Params, Depends()],
-        message_repo: Annotated[ChatMessageRepository, Depends(get_message_repository)],
+        chat_serv: Annotated[ChatService, Depends(get_chat_service)],
 ):
     limit = params.size
     offset = (params.page - 1) * params.size
 
-    messages = await message_repo.get_list(
+    messages = await chat_serv.message_repo.get_list(
         limit=limit,
         offset=offset,
-        order_by="created_at decs",
+        order_by="created_at",
         chat_id=chat_id,
     )
-    total = await message_repo.get_total_count(
+    total = await chat_serv.message_repo.get_total_count(
         chat_id=chat_id,
     )
 
@@ -63,3 +62,49 @@ async def get_chat_messages(
         total=total,
         params=params
     )
+
+
+@router.websocket("/ws")
+async def websocket_endpoint(
+        websocket: WebSocket,
+        chat_serv: Annotated[ChatService, Depends(get_chat_service)],
+        ws_manager: Annotated[ConnectionManager, Depends(get_ws_manager)],
+        token: str = Query(...)
+):
+    try:
+        user_data = parse_token(token)
+        user_id = uuid.UUID(user_data["sub"])
+    except ValueError:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    await ws_manager.connect(user_id, websocket)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            if data["type"] == "user_message":
+                chat_id = uuid.UUID(data["chat_id"])
+                message_text = data["content"]
+
+                await chat_serv.message_repo.add(
+                    chat_id=chat_id,
+                    role=RoleEnum.user,
+                    content=ContentItem(type=ContentTypeEnum.text, text=message_text).model_dump(),
+                )
+
+                full_answer = ""
+                await ws_manager.send_to_user(user_id, {"type": "start"})
+
+                async for token in chat_serv.stream_chat_completion(message_text):
+                    await ws_manager.send_to_user(user_id, {"type": "token", "content": token})
+                    full_answer += token
+
+                await chat_serv.message_repo.add(
+                    chat_id=chat_id,
+                    role=RoleEnum.assistant,
+                    content=ContentItem(type=ContentTypeEnum.text, text=full_answer).model_dump(),
+                )
+                await ws_manager.send_to_user(user_id, {"type": "end"})
+
+    except WebSocketDisconnect:
+        await ws_manager.disconnect(user_id, websocket)

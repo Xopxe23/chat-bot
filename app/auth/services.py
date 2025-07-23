@@ -31,8 +31,8 @@ class AuthService:
 
 
 def get_auth_service(
-    user_repo: Annotated[AuthUserRepository, Depends(get_user_repository)],
-    code_repo: Annotated[AuthVerifyCodeRepository, Depends(get_verify_code_repository)],
+        user_repo: Annotated[AuthUserRepository, Depends(get_user_repository)],
+        code_repo: Annotated[AuthVerifyCodeRepository, Depends(get_verify_code_repository)],
 ) -> AuthService:
     return AuthService(
         user_repo=user_repo,

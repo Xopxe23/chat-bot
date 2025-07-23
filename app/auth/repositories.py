@@ -14,7 +14,7 @@ class AuthUserRepository(BaseRepository[AuthUser, AuthUserSchema]):
     schema = AuthUserSchema
 
 
-async def get_user_repository(
+def get_user_repository(
         session: Annotated[AsyncSession, Depends(get_db)],
 ) -> AuthUserRepository:
     return AuthUserRepository(session)
@@ -25,7 +25,7 @@ class AuthVerifyCodeRepository(BaseRepository[AuthVerifyCode, AuthVerifyCodeSche
     schema = AuthVerifyCodeSchema
 
 
-async def get_verify_code_repository(
+def get_verify_code_repository(
         session: Annotated[AsyncSession, Depends(get_db)],
 ) -> AuthVerifyCodeRepository:
     return AuthVerifyCodeRepository(session)

@@ -14,7 +14,7 @@ class ChatSessionRepository(BaseRepository[ChatSession, ChatSessionSchema]):
     schema = ChatSessionSchema
 
 
-async def get_chat_repository(
+def get_chat_repository(
         session: Annotated[AsyncSession, Depends(get_db)],
 ) -> ChatSessionRepository:
     return ChatSessionRepository(session)
@@ -25,7 +25,7 @@ class ChatMessageRepository(BaseRepository[ChatMessage, ChatMessageSchema]):
     schema = ChatMessageSchema
 
 
-async def get_message_repository(
+def get_message_repository(
         session: Annotated[AsyncSession, Depends(get_db)],
 ) -> ChatMessageRepository:
     return ChatMessageRepository(session)
