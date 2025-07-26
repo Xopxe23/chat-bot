@@ -1,10 +1,10 @@
-from app.config.pg import PostgresConfig
+from app.config.database import DatabaseConfig
 from app.config.security import SecurityConfig
 
 
 class Settings:
     def __init__(self):
-        self.postgres = PostgresConfig()
+        self.database = DatabaseConfig()
         self.security = SecurityConfig()
 
 

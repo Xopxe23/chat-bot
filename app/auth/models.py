@@ -8,7 +8,7 @@ from sqlalchemy import TIMESTAMP, UUID, Boolean, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.common.models import BaseModelMixin, CreatedAtMixin
-from app.database import Base
+from app.database.pg_client import Base
 
 
 def generate_code(length: int = 6) -> str:

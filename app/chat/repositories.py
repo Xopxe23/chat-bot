@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.chat.models import ChatMessage, ChatSession
 from app.chat.schemas import ChatMessageSchema, ChatSessionSchema
 from app.common.repositories import BaseRepository
-from app.database import get_db
+from app.database.pg_client import get_db
 
 
 class ChatSessionRepository(BaseRepository[ChatSession, ChatSessionSchema]):

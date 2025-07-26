@@ -1,17 +1,24 @@
 import asyncio
 import json
-from typing import Annotated, AsyncGenerator
+import uuid
+from enum import Enum
+from typing import Annotated, Any, AsyncGenerator, Dict, List
 
 import httpx
 from fastapi import Depends
+from fastapi.websockets import WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketState
 
+from app.chat.models import ContentTypeEnum, RoleEnum
 from app.chat.repositories import (
     ChatMessageRepository,
     ChatSessionRepository,
     get_chat_repository,
     get_message_repository,
 )
-from app.config.main import settings
+from app.chat.schemas import ContentItem
+from app.database.redis_client import RedisChatCache, get_redis_cache
+from app.managers.client import get_http_client
 
 
 class ChatService:
@@ -19,25 +26,72 @@ class ChatService:
             self,
             chat_repo: ChatSessionRepository,
             message_repo: ChatMessageRepository,
+            cache_repo: RedisChatCache,
+            client: httpx.AsyncClient,
     ):
         self.chat_repo = chat_repo
         self.message_repo = message_repo
-        self.client = httpx.AsyncClient(
-            base_url=settings.security.OPENAI_URL,
-            timeout=30.0,
-            headers={
-                "Authorization": f"Bearer {settings.security.OPENAI_API_KEY}",
-                "Content-Type": "application/json",
-            },
-        )
+        self.cache_repo = cache_repo
+        self.client = client
 
-    async def stream_chat_completion(self, prompt: str) -> AsyncGenerator[str, None]:
+    async def process_user_message(
+            self,
+            chat_id: uuid.UUID,
+            user_content: List[Dict[str, Any]],
+            websocket: WebSocket,
+    ):
+        last_messages = await self._get_last_messages_from_cache(chat_id)
+
+        await self.message_repo.add(
+            chat_id=chat_id,
+            role=RoleEnum.user,
+            content=user_content,
+        )
+        user_message = {
+            "role": "user",
+            "content": user_content,
+        }
+        await self.cache_repo.append_message(chat_id, user_message)
+
+        openai_messages = last_messages + [user_message]
+        full_answer = ""
+        try:
+            async for token in self.stream_chat_completion(openai_messages):
+                full_answer += token
+                try:
+                    await websocket.send_json({"type": "token", "content": token})
+                except (WebSocketDisconnect, RuntimeError) as e:
+                    if isinstance(e, RuntimeError) and 'close message' not in str(e):
+                        raise
+        except Exception:
+            # log e
+            raise
+        assistant_content = [ContentItem(type=ContentTypeEnum.text, text=full_answer).model_dump()]
+        await self.message_repo.add(
+            chat_id=chat_id,
+            role=RoleEnum.assistant,
+            content=assistant_content,
+        )
+        await self.message_repo.session.commit()
+        assistant_message = {
+            "role": "assistant",
+            "content": assistant_content
+        }
+        await self.cache_repo.append_message(chat_id, assistant_message)
+        try:
+            await websocket.send_json({"type": "end"})
+        except (WebSocketDisconnect, RuntimeError) as e:
+            if isinstance(e, RuntimeError) and 'close message' not in str(e):
+                raise
+
+    async def stream_chat_completion(
+            self,
+            messages: List,
+    ) -> AsyncGenerator[str, None]:
         payload = {
             "model": "gpt-4",
             "stream": True,
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
+            "messages": messages,
         }
         try:
             async with self.client.stream("POST", "chat/completions", json=payload) as response:
@@ -62,9 +116,30 @@ class ChatService:
     async def close_client(self):
         await self.client.aclose()
 
+    async def _get_last_messages_from_cache(
+            self,
+            chat_id: uuid.UUID,
+    ) -> List[Dict[str, Any]]:
+        messages_context = await self.cache_repo.get_last_messages(chat_id, limit=15)
+        if not messages_context:
+            last_messages = await self.message_repo.get_list(
+                limit=15,
+                offset=0,
+                order_by="created_at desc",
+                chat_id=chat_id,
+            )
+            messages_context = [{
+                "role": msg.role.value if isinstance(msg.role, Enum) else msg.role,
+                "content": [part.model_dump() for part in msg.content],
+            } for msg in reversed(last_messages)]
+            await self.cache_repo.set_messages(chat_id, messages_context)
+        return messages_context
+
 
 def get_chat_service(
         chat_repo: Annotated[ChatSessionRepository, Depends(get_chat_repository)],
         message_repo: Annotated[ChatMessageRepository, Depends(get_message_repository)],
+        redis_cache: Annotated[RedisChatCache, Depends(get_redis_cache)],
+        client: Annotated[httpx.AsyncClient, Depends(get_http_client)],
 ) -> ChatService:
-    return ChatService(chat_repo, message_repo)
+    return ChatService(chat_repo, message_repo, redis_cache, client)

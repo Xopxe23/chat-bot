@@ -1,6 +1,5 @@
 from typing import Any, Generic, List, Optional, Type, TypeVar, Union
 
-from fastapi.openapi.models import Schema
 from pydantic import BaseModel
 from sqlalchemy import asc, desc, func, select
 from sqlalchemy.dialects import postgresql

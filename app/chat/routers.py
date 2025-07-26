@@ -1,4 +1,3 @@
-import json
 import uuid
 from typing import Annotated, List
 
@@ -8,8 +7,7 @@ from fastapi_pagination import Page, Params
 
 from app.auth.schemas import AuthUserSchema
 from app.auth.utils import get_current_user, parse_token
-from app.chat.models import ContentTypeEnum, RoleEnum
-from app.chat.schemas import ChatMessageSchema, ChatSessionSchema, ChatSessionSchemaWithMessages, ContentItem
+from app.chat.schemas import ChatMessageSchema, ChatSessionSchema, ChatSessionSchemaWithMessages
 from app.chat.services import ChatService, get_chat_service
 from app.managers.connections import ConnectionManager, get_ws_manager
 
@@ -84,27 +82,13 @@ async def websocket_endpoint(
             data = await websocket.receive_json()
             if data["type"] == "user_message":
                 chat_id = uuid.UUID(data["chat_id"])
-                message_text = data["content"]
+                user_content = data["content"]
 
-                await chat_serv.message_repo.add(
+                await chat_serv.process_user_message(
                     chat_id=chat_id,
-                    role=RoleEnum.user,
-                    content=ContentItem(type=ContentTypeEnum.text, text=message_text).model_dump(),
+                    user_content=user_content,
+                    websocket=websocket,
                 )
-
-                full_answer = ""
-                await ws_manager.send_to_user(user_id, {"type": "start"})
-
-                async for token in chat_serv.stream_chat_completion(message_text):
-                    await ws_manager.send_to_user(user_id, {"type": "token", "content": token})
-                    full_answer += token
-
-                await chat_serv.message_repo.add(
-                    chat_id=chat_id,
-                    role=RoleEnum.assistant,
-                    content=ContentItem(type=ContentTypeEnum.text, text=full_answer).model_dump(),
-                )
-                await ws_manager.send_to_user(user_id, {"type": "end"})
 
     except WebSocketDisconnect:
         await ws_manager.disconnect(user_id, websocket)

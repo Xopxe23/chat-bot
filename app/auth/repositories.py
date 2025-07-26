@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.models import AuthUser, AuthVerifyCode
 from app.auth.schemas import AuthUserSchema, AuthVerifyCodeSchema
 from app.common.repositories import BaseRepository
-from app.database import get_db
+from app.database.pg_client import get_db
 
 
 class AuthUserRepository(BaseRepository[AuthUser, AuthUserSchema]):

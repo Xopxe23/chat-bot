@@ -10,7 +10,7 @@ from sqlalchemy.orm import (
 )
 
 from app.common.models import BaseModelMixin, CreatedAtMixin, UpdatedAtMixin
-from app.database import Base
+from app.database.pg_client import Base
 
 
 class RoleEnum(str, enum.Enum):
