@@ -16,8 +16,11 @@ class DatabaseConfig(BaseSettings):
     REDIS_DB: int = 0
     REDIS_PASSWORD: Optional[str] = None
 
+    QDRANT_HOST: str = "localhost"
+    QDRANT_PORT: int = 6333
+
     @property
-    def DB_URL(self) -> str:
+    def POSTGRES_URL(self) -> str:
         return (f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
                 f"{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}")
 
@@ -31,6 +34,10 @@ class DatabaseConfig(BaseSettings):
         if self.REDIS_PASSWORD:
             return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+
+    @property
+    def QDRANT_URL(self) -> str:
+        return f"http://{self.host}:{self.port}"
 
     class Config:
         env_file = ".env"

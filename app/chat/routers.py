@@ -90,5 +90,5 @@ async def websocket_endpoint(
                     websocket=websocket,
                 )
 
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):
         await ws_manager.disconnect(user_id, websocket)

@@ -7,7 +7,7 @@ from app.config.main import settings
 from app.database.pg_client import Base
 
 config = context.config
-config.set_main_option("sqlalchemy.url", f"{settings.database.DB_URL}?async_fallback=True")
+config.set_main_option("sqlalchemy.url", f"{settings.database.POSTGRES_URL}?async_fallback=True")
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
