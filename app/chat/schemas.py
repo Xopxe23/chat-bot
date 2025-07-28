@@ -8,10 +8,14 @@ from app.chat.models import ContentTypeEnum, RoleEnum
 from app.common.schemas import OrmModel
 
 
-class ContentItem(BaseModel):
+class ImageUrlSchema(BaseModel):
+    url: str
+
+
+class ContentItemSchema(BaseModel):
     type: ContentTypeEnum
     text: Optional[str] = None
-    url: Optional[str] = None
+    image_url: Optional[ImageUrlSchema] = None
     meta: Optional[Dict[str, Any]] = None
 
 
@@ -19,7 +23,7 @@ class ChatMessageSchema(OrmModel):
     id: uuid.UUID
     chat_id: uuid.UUID
     role: RoleEnum
-    content: Union[ContentItem, List[ContentItem]]
+    content: Union[ContentItemSchema, List[ContentItemSchema]]
     created_at: datetime.datetime
 
 

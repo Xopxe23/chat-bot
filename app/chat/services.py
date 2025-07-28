@@ -7,16 +7,15 @@ from typing import Annotated, Any, AsyncGenerator, Dict, List
 import httpx
 from fastapi import Depends
 from fastapi.websockets import WebSocket, WebSocketDisconnect
-from starlette.websockets import WebSocketState
 
-from app.chat.models import ContentTypeEnum, RoleEnum
+from app.chat.models import RoleEnum
 from app.chat.repositories import (
     ChatMessageRepository,
     ChatSessionRepository,
     get_chat_repository,
     get_message_repository,
 )
-from app.chat.schemas import ContentItem
+
 from app.database.redis_client import RedisChatCache, get_redis_cache
 from app.managers.client import get_http_client
 
@@ -36,12 +35,12 @@ class ChatService:
 
     async def process_user_message(
             self,
+            model: str,
             chat_id: uuid.UUID,
             user_content: List[Dict[str, Any]],
             websocket: WebSocket,
     ):
         last_messages = await self._get_last_messages_from_cache(chat_id)
-
         await self.message_repo.add(
             chat_id=chat_id,
             role=RoleEnum.user,
@@ -52,21 +51,12 @@ class ChatService:
             "content": user_content,
         }
         await self.cache_repo.append_message(chat_id, user_message)
-
-        openai_messages = last_messages + [user_message]
-        full_answer = ""
-        try:
-            async for token in self.stream_chat_completion(openai_messages):
-                full_answer += token
-                try:
-                    await websocket.send_json({"type": "token", "content": token})
-                except (WebSocketDisconnect, RuntimeError) as e:
-                    if isinstance(e, RuntimeError) and 'close message' not in str(e):
-                        raise
-        except Exception:
-            # log e
-            raise
-        assistant_content = [ContentItem(type=ContentTypeEnum.text, text=full_answer).model_dump()]
+        assistant_content = await self._handle_model_response(
+            model,
+            last_messages,
+            user_message,
+            websocket,
+        )
         await self.message_repo.add(
             chat_id=chat_id,
             role=RoleEnum.assistant,
@@ -75,7 +65,7 @@ class ChatService:
         await self.message_repo.session.commit()
         assistant_message = {
             "role": "assistant",
-            "content": assistant_content
+            "content": assistant_content,
         }
         await self.cache_repo.append_message(chat_id, assistant_message)
         try:
@@ -84,12 +74,35 @@ class ChatService:
             if isinstance(e, RuntimeError) and 'close message' not in str(e):
                 raise
 
-    async def stream_chat_completion(
+    async def _handle_model_response(
             self,
+            model: str,
+            last_messages: List[Dict[str, Any]],
+            user_message: Dict[str, Any],
+            websocket: WebSocket,
+    ) -> List[Dict[str, Any]]:
+        match model:
+            case "gpt-4":
+                full_answer = ""
+                openai_messages = last_messages + [user_message]
+                try:
+                    async for token in self._stream_chat_completion(model, openai_messages):
+                        full_answer += token
+                        await self._safe_send(websocket, {"type": "token", "content": token})
+                    return [{"type": "text", "text": full_answer}]
+                except Exception:
+                    # логирование ошибки
+                    raise
+            case _:
+                raise ValueError(f"Unsupported model: {model}")
+
+    async def _stream_chat_completion(
+            self,
+            model: str,
             messages: List,
     ) -> AsyncGenerator[str, None]:
         payload = {
-            "model": "gpt-4",
+            "model": model,
             "stream": True,
             "messages": messages,
         }
@@ -113,9 +126,6 @@ class ChatService:
             # log
             raise RuntimeError(f"OpenAI API error: {e}") from e
 
-    async def close_client(self):
-        await self.client.aclose()
-
     async def _get_last_messages_from_cache(
             self,
             chat_id: uuid.UUID,
@@ -134,6 +144,17 @@ class ChatService:
             } for msg in reversed(last_messages)]
             await self.cache_repo.set_messages(chat_id, messages_context)
         return messages_context
+
+    @staticmethod
+    async def _safe_send(websocket: WebSocket, data: dict):
+        try:
+            await websocket.send_json(data)
+        except (WebSocketDisconnect, RuntimeError) as e:
+            if isinstance(e, RuntimeError) and 'close message' not in str(e):
+                raise
+
+    async def close_client(self):
+        await self.client.aclose()
 
 
 def get_chat_service(

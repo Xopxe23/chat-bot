@@ -48,7 +48,7 @@ async def get_chat_messages(
     messages = await chat_serv.message_repo.get_list(
         limit=limit,
         offset=offset,
-        order_by="created_at",
+        order_by="created_at desc",
         chat_id=chat_id,
     )
     total = await chat_serv.message_repo.get_total_count(
@@ -80,15 +80,19 @@ async def websocket_endpoint(
     try:
         while True:
             data = await websocket.receive_json()
-            if data["type"] == "user_message":
-                chat_id = uuid.UUID(data["chat_id"])
-                user_content = data["content"]
+            if not (message := data["message"]) or data["type"] != "message":
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                raise
 
-                await chat_serv.process_user_message(
-                    chat_id=chat_id,
-                    user_content=user_content,
-                    websocket=websocket,
-                )
+            model = data.get("model")
+            chat_id = uuid.UUID(message.get("chat_id"))
+            user_content = message.get("content")
+            await chat_serv.process_user_message(
+                model=model,
+                chat_id=chat_id,
+                user_content=user_content,
+                websocket=websocket,
+            )
 
     except (WebSocketDisconnect, RuntimeError):
         await ws_manager.disconnect(user_id, websocket)
