@@ -3,8 +3,11 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from app.auth.models import AuthUser, AuthVerifyCode
+from app.chat.models import ChatMessage, ChatSession, ChatSummary
 from app.config.main import settings
 from app.database.pg_client import Base
+from app.file.models import File
 
 config = context.config
 config.set_main_option("sqlalchemy.url", f"{settings.database.POSTGRES_URL}?async_fallback=True")

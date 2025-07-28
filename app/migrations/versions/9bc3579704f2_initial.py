@@ -1,8 +1,8 @@
-"""add chats, messages
+"""initial
 
-Revision ID: 63b96852173e
+Revision ID: 9bc3579704f2
 Revises: 
-Create Date: 2025-07-16 20:20:33.348801
+Create Date: 2025-07-28 23:51:27.315153
 
 """
 from typing import Sequence, Union
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '63b96852173e'
+revision: str = '9bc3579704f2'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -28,6 +28,15 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_auth_user_email'), 'auth_user', ['email'], unique=True)
+    op.create_table('file',
+    sa.Column('filename', sa.String(length=256), nullable=False),
+    sa.Column('content_type', sa.String(length=256), nullable=False),
+    sa.Column('size', sa.Integer(), nullable=False),
+    sa.Column('url', sa.String(length=512), nullable=False),
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('created_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('auth_verify_code',
     sa.Column('code', sa.String(length=6), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
@@ -76,6 +85,7 @@ def downgrade() -> None:
     op.drop_table('chat_session')
     op.drop_index(op.f('ix_auth_verify_code_code'), table_name='auth_verify_code')
     op.drop_table('auth_verify_code')
+    op.drop_table('file')
     op.drop_index(op.f('ix_auth_user_email'), table_name='auth_user')
     op.drop_table('auth_user')
     # ### end Alembic commands ###

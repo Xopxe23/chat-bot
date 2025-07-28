@@ -4,11 +4,11 @@ from pydantic_settings import BaseSettings
 
 
 class DatabaseConfig(BaseSettings):
-    POSTGRES_HOST: str
-    POSTGRES_PORT: int
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
+    POSTGRES_HOST: str = 'localhost'
+    POSTGRES_PORT: int = 5432
+    POSTGRES_USER: str = 'postgres'
+    POSTGRES_PASSWORD: str = 'postgres'
+    POSTGRES_DB: str = 'postgres'
     # TEST_POSTGRES_DB: str
 
     REDIS_HOST: str = "localhost"
@@ -18,6 +18,12 @@ class DatabaseConfig(BaseSettings):
 
     QDRANT_HOST: str = "localhost"
     QDRANT_PORT: int = 6333
+
+    MINIO_USER: str = 'minioadmin'
+    MINIO_PASSWORD: str = 'minioadmin'
+    MINIO_HOST: str = 'localhost'
+    MINIO_PORT: int = 9000
+    MINIO_BUCKET_NAME: str = 'minio'
 
     @property
     def POSTGRES_URL(self) -> str:
@@ -38,6 +44,10 @@ class DatabaseConfig(BaseSettings):
     @property
     def QDRANT_URL(self) -> str:
         return f"http://{self.host}:{self.port}"
+
+    @property
+    def MINIO_URL(self) -> str:
+        return f"http://{self.MINIO_HOST}:{self.MINIO_PORT}"
 
     class Config:
         env_file = ".env"

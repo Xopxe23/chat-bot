@@ -15,7 +15,6 @@ from app.chat.repositories import (
     get_chat_repository,
     get_message_repository,
 )
-
 from app.database.redis_client import RedisChatCache, get_redis_cache
 from app.managers.client import get_http_client
 
